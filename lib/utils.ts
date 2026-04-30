@@ -10,8 +10,7 @@ export function formatCurrency(
       currency: currency,
     }).format(value);
   } catch (error) {
-    // Fallback to simple USD formatting
-    return `$${value.toFixed(2)}`;
+    return value.toFixed(2);
   }
 }
 
