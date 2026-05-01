@@ -2,14 +2,12 @@ import { AuthButton } from "@/components/AuthButton";
 import { AuthInput } from "@/components/AuthInput";
 import {
   getClerkErrorMessage,
-  mapFieldErrors,
   validateEmail,
 } from "@/lib/auth";
 import { useAuth, useClerk, useSignIn } from "@clerk/expo";
 import { Link, useRouter } from "expo-router";
 import React, { useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -21,48 +19,67 @@ import { SafeAreaView } from "react-native-safe-area-context";
 interface FormErrors {
   email?: string;
   password?: string;
-  code?: string;
   global?: string;
 }
 
 /**
  * Production-grade sign-in screen with email/password authentication
- * - Form validation
- * - Error handling
- * - MFA support
  */
 export default function SignInScreen() {
-  const { signIn, setActive, isLoaded: isSignInLoaded } = useSignIn();
-  const { setActive: setClerkActive } = useClerk();
-  const { isLoaded: isAuthLoaded } = useAuth();
-  const router = useRouter();
+  console.log("🚀 SignInScreen component rendering");
 
-  const isLoaded = isSignInLoaded && isAuthLoaded;
+  let signIn;
+  let setClerkActive;
+  let isAuthLoaded = false;
+
+  try {
+    const signInResult = useSignIn();
+    signIn = signInResult?.signIn;
+    const isSignInLoaded = signInResult?.isLoaded ?? false;
+    console.log("✅ useSignIn() loaded:", { isSignInLoaded });
+
+    const clerkResult = useClerk();
+    setClerkActive = clerkResult?.setActive;
+    console.log("✅ useClerk() loaded:", { setClerkActive: !!setClerkActive });
+
+    const authResult = useAuth();
+    isAuthLoaded = authResult?.isLoaded ?? false;
+    console.log("✅ useAuth() loaded:", { isAuthLoaded });
+  } catch (error) {
+    console.error("❌ Error loading Clerk hooks:", error);
+    return (
+      <SafeAreaView className="auth-safe-area">
+        <View className="flex-1 items-center justify-center p-5">
+          <Text className="text-center text-destructive mb-4">
+            Error initializing authentication
+          </Text>
+          <Text className="text-center text-muted-foreground text-sm">
+            {String(error)}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const router = useRouter();
 
   // Form state
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [code, setCode] = useState("");
 
   // UI state
   const [errors, setErrors] = useState<FormErrors>({});
   const [loading, setLoading] = useState(false);
-  const [mfaRequired, setMfaRequired] = useState(false);
 
   // Validation state
   const emailError = errors.email || "";
   const passwordError = errors.password || "";
-  const codeError = errors.code || "";
   const globalError = errors.global || "";
 
   const isFormValid =
     email.trim() && password.trim() && !emailError && !passwordError;
-  const isMfaFormValid = code.trim() && !codeError;
 
-  /**
-   * Clear field error when user starts typing
-   */
   const handleEmailChange = (value: string) => {
     setEmail(value);
     if (errors.email) {
@@ -83,16 +100,6 @@ export default function SignInScreen() {
     }
   };
 
-  const handleCodeChange = (value: string) => {
-    setCode(value.replace(/[^0-9]/g, "").slice(0, 6));
-    if (errors.code) {
-      setErrors((prev) => ({ ...prev, code: "" }));
-    }
-  };
-
-  /**
-   * Validate form fields
-   */
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
@@ -109,11 +116,14 @@ export default function SignInScreen() {
     return Object.keys(newErrors).length === 0;
   };
 
-  /**
-   * Handle sign-in submission
-   */
   const handleSignIn = async () => {
-    if (!validateForm() || !isLoaded || !signIn) {
+    if (!validateForm() || !isAuthLoaded || !signIn || !setClerkActive) {
+      console.warn("⚠️ Sign-in requirements not met:", {
+        validated: validateForm(),
+        authLoaded: isAuthLoaded,
+        hasSignIn: !!signIn,
+        hasSetActive: !!setClerkActive,
+      });
       return;
     }
 
@@ -121,25 +131,31 @@ export default function SignInScreen() {
       setLoading(true);
       setErrors({});
 
+      console.log("📤 Attempting sign-in with:", {
+        email: email.toLowerCase().trim(),
+      });
+
       const result = await signIn.password({
         emailAddress: email.toLowerCase().trim(),
         password,
       });
 
-      // Check for errors
-      if (result.error) {
+      console.log("📥 Sign-in result:", result);
+
+      if (result?.error) {
         const message = getClerkErrorMessage(result.error);
+        console.error("❌ Sign-in error:", message);
         setErrors({ global: message });
         return;
       }
 
-      // If sign-in succeeded, navigate home
-      if (result.createdSessionId) {
+      if (result?.createdSessionId) {
+        console.log("✅ Session created, redirecting home");
         await setClerkActive?.({ session: result.createdSessionId });
         router.replace("/(tabs)");
       }
     } catch (err: any) {
-      console.error("Sign-in error:", err);
+      console.error("❌ Sign-in exception:", err);
       const message = getClerkErrorMessage(err);
       setErrors({ global: message });
     } finally {
@@ -147,27 +163,8 @@ export default function SignInScreen() {
     }
   };
 
-  /**
-   * Handle going back to sign-in
-   */
-  const handleBackToSignIn = () => {
-    setMfaRequired(false);
-    setCode("");
-    setPassword("");
-    setErrors({});
-  };
+  console.log("🎨 Rendering SignInScreen UI");
 
-  if (!isLoaded) {
-    return (
-      <SafeAreaView className="auth-safe-area">
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#ea7a53" />
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // Main sign-in screen
   return (
     <SafeAreaView className="auth-safe-area">
       <KeyboardAvoidingView
