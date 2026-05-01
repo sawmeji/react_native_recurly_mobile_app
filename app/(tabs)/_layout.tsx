@@ -3,8 +3,9 @@ import { colors, components } from "@/constants/theme";
 import { useAuth } from "@clerk/expo";
 import clsx from "clsx";
 import { Redirect, Tabs } from "expo-router";
-import { ActivityIndicator, Image, View } from "react-native";
+import { ActivityIndicator, Image, View, Text } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
 
 const tabBar = components.tabBar;
 
@@ -21,18 +22,37 @@ const TabIcon = ({ focused, icon }: TabIconProps) => {
 const TabLayout = () => {
   const insets = useSafeAreaInsets();
   const { isSignedIn, isLoaded } = useAuth();
+  const [timeout, setTimedOut] = useState(false);
+
+  useEffect(() => {
+    console.log("📊 Tabs Auth State:", { isLoaded, isSignedIn });
+
+    // If not loaded after 5 seconds, redirect to sign-in anyway
+    const timer = setTimeout(() => {
+      if (!isLoaded) {
+        console.warn(
+          "⚠️ Tabs auth loading timeout - redirecting to sign-in"
+        );
+        setTimedOut(true);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timer);
+  }, [isLoaded]);
 
   // Show loading indicator while checking auth state
-  if (!isLoaded) {
+  if (!isLoaded && !timeout) {
     return (
       <View className="flex-1 items-center justify-center bg-background">
         <ActivityIndicator size="large" color="#ea7a53" />
+        <Text className="mt-4 text-foreground">Loading dashboard...</Text>
       </View>
     );
   }
 
-  // Redirect to sign-in if not authenticated
-  if (!isSignedIn) {
+  // Redirect to sign-in if not authenticated (or if timed out)
+  if (!isSignedIn || timeout) {
+    console.log("🚫 Not signed in, redirecting to sign-in");
     return <Redirect href="/(auth)/sign-in" />;
   }
 
