@@ -4,17 +4,16 @@ import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
 import { SplashScreen, Stack } from "expo-router";
 import { useEffect } from "react";
-import { ActivityIndicator, View, Text } from "react-native";
+import { PostHogProvider } from "posthog-react-native";
+import { posthog } from "@/src/config/posthog";
 
 SplashScreen.preventAutoHideAsync();
 
-const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY || "";
+const publishableKey = process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY!;
 
 if (!publishableKey) {
   throw new Error("Add your Clerk Publishable Key to the .env file");
 }
-
-console.log("🔐 Clerk Key Loaded:", publishableKey.substring(0, 20) + "...");
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -28,24 +27,19 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (fontsLoaded) {
-      console.log("📝 Fonts loaded, hiding splash screen");
       SplashScreen.hideAsync();
     }
   }, [fontsLoaded]);
 
   if (!fontsLoaded) {
-    return (
-      <View className="flex-1 items-center justify-center bg-background">
-        <ActivityIndicator size="large" color="#ea7a53" />
-        <Text className="mt-4 text-foreground">Loading fonts...</Text>
-      </View>
-    );
+    return null;
   }
 
-  console.log("🎨 Rendering ClerkProvider");
   return (
-    <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
-      <Stack screenOptions={{ headerShown: false }} />
-    </ClerkProvider>
+    <PostHogProvider client={posthog}>
+      <ClerkProvider publishableKey={publishableKey} tokenCache={tokenCache}>
+        <Stack screenOptions={{ headerShown: false }} />
+      </ClerkProvider>
+    </PostHogProvider>
   );
 }

@@ -1,38 +1,67 @@
-/**
- * Authentication utilities for form validation, error handling, and session management
- */
-
 export const PASSWORD_REQUIREMENTS = {
   minLength: 8,
   hasUppercase: /[A-Z]/,
   hasLowercase: /[a-z]/,
   hasNumber: /[0-9]/,
-  hasSpecial: /[!@#$%^&*()-_=+[\]{};':"\\|,.<>?/`~]/,
+  hasSpecial: /[!@#$%^&*()\-_=+\[\]{};':"\\|,.<>/?`~]/,
 } as const;
 
-/**
- * Validates email format
- */
+export interface AuthFormErrors {
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+  code?: string;
+  global?: string;
+}
+
+type ClerkErrorItem = {
+  code?: string;
+  message?: string;
+  longMessage?: string;
+  meta?: {
+    paramName?: string;
+    name?: string;
+    [key: string]: unknown;
+  };
+};
+
+type ClerkLikeError = {
+  errors?: ClerkErrorItem[];
+  message?: string;
+};
+
+type SessionActivatableResource = {
+  createdSessionId?: string | null;
+  existingSession?: {
+    sessionId?: string;
+  };
+  finalize?: () => Promise<{ error: ClerkLikeError | null }>;
+};
+
+type SetActiveFn = ((params: { session: string }) => Promise<unknown>) | null;
+
+export const normalizeEmail = (value: string) => value.trim().toLowerCase();
+
 export const validateEmail = (email: string): string | null => {
-  if (!email.trim()) {
-    return "Email is required";
+  const value = normalizeEmail(email);
+
+  if (!value) {
+    return "Enter your email address";
   }
-  // Simple email validation regex
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    return "Invalid email format";
+  if (!emailRegex.test(value)) {
+    return "Use a valid email address";
   }
+
   return null;
 };
 
-/**
- * Validates password and returns array of unmet requirements
- */
 export const validatePassword = (password: string): string[] => {
   const errors: string[] = [];
 
   if (!password) {
-    return ["Password is required"];
+    return ["Enter a password"];
   }
 
   if (password.length < PASSWORD_REQUIREMENTS.minLength) {
@@ -54,153 +83,333 @@ export const validatePassword = (password: string): string[] => {
   return errors;
 };
 
-/**
- * Validates that passwords match
- */
 export const validatePasswordMatch = (
   password: string,
   confirm: string,
 ): string | null => {
+  if (!confirm.trim()) {
+    return "Confirm your password";
+  }
+
   if (password !== confirm) {
     return "Passwords do not match";
   }
+
   return null;
 };
 
-/**
- * Maps Clerk error responses to user-friendly messages
- */
-export const getClerkErrorMessage = (error: any): string => {
-  if (!error) return "An error occurred. Please try again.";
+export const validateVerificationCode = (code: string): string | null => {
+  const value = code.trim();
 
-  // Handle Clerk error format with errors array
-  if (error.errors && Array.isArray(error.errors) && error.errors.length > 0) {
-    const firstError = error.errors[0];
-    const code = firstError.code || "";
-    const message = firstError.message || "";
-
-    // Map specific Clerk error codes
-    if (code === "form_identifier_exists") {
-      return "This email is already in use";
-    }
-    if (code === "form_password_pwned") {
-      return "This password is too common. Please choose a stronger password.";
-    }
-    if (code === "form_password_too_short") {
-      return "Password is too short";
-    }
-    if (code === "form_identifier_not_found") {
-      return "Email or password is incorrect";
-    }
-    if (code === "form_code_incorrect") {
-      return "Verification code is incorrect";
-    }
-    if (code === "form_code_expired") {
-      return "Verification code expired. Please request a new one.";
-    }
-    if (code === "session_exists") {
-      return "You are already signed in";
-    }
-    if (code === "rate_limit_exceeded") {
-      return "Too many attempts. Please try again later.";
-    }
-
-    // Return custom message if available
-    if (message) {
-      return message;
-    }
+  if (!value) {
+    return "Enter the 6-digit code";
   }
 
-  // Handle string error messages
+  if (!/^\d{6}$/.test(value)) {
+    return "Use the 6-digit code from your email";
+  }
+
+  return null;
+};
+
+const getErrorItems = (error: unknown): ClerkErrorItem[] => {
+  if (
+    error &&
+    typeof error === "object" &&
+    "errors" in error &&
+    Array.isArray((error as ClerkLikeError).errors)
+  ) {
+    return (error as ClerkLikeError).errors ?? [];
+  }
+
+  return [];
+};
+
+const getFieldFromParam = (paramName?: string): keyof AuthFormErrors | null => {
+  switch (paramName) {
+    case "email_address":
+    case "identifier":
+      return "email";
+    case "password":
+      return "password";
+    case "code":
+      return "code";
+    default:
+      return null;
+  }
+};
+
+export const getClerkErrorMessage = (error: unknown): string => {
+  const [firstError] = getErrorItems(error);
+  const code = firstError?.code ?? "";
+  const message =
+    firstError?.longMessage ?? firstError?.message ?? (error as ClerkLikeError)?.message ?? "";
+
+  switch (code) {
+    case "form_identifier_exists":
+      return "That email is already registered";
+    case "form_identifier_not_found":
+    case "form_password_incorrect":
+      return "Email or password is incorrect";
+    case "form_password_pwned":
+      return "Choose a password that is less common";
+    case "form_password_too_short":
+      return "Your password is too short";
+    case "form_code_incorrect":
+      return "That code doesn't look right";
+    case "form_code_expired":
+      return "That code has expired. Request a new one to continue";
+    case "rate_limit_exceeded":
+      return "Too many attempts. Please wait a moment and try again";
+    case "session_exists":
+      return "You're already signed in on this device";
+    default:
+      break;
+  }
+
+  if (message) {
+    return message;
+  }
+
   if (typeof error === "string") {
     return error;
   }
 
-  // Fallback
-  return error.message || "An error occurred. Please try again.";
-};
-
-/**
- * Maps field-level errors from Clerk to a structured object
- */
-export const mapFieldErrors = (clerkErrors: any): Record<string, string> => {
-  const fieldErrors: Record<string, string> = {};
-
-  if (!clerkErrors || !clerkErrors.errors) {
-    return fieldErrors;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: string }).message || "");
   }
 
-  const errors = Array.isArray(clerkErrors.errors)
-    ? clerkErrors.errors
-    : [clerkErrors.errors];
+  return "Something went wrong. Please try again";
+};
 
-  errors.forEach((error: any) => {
-    const code = error.code || "";
-    const message = error.message || "";
+export const mapClerkFieldErrors = (
+  error: unknown,
+): Partial<AuthFormErrors> => {
+  const fieldErrors: Partial<AuthFormErrors> = {};
 
-    // Map error codes to field names
-    if (code.includes("identifier") || code.includes("email")) {
-      fieldErrors.email = message || "Invalid email";
-    } else if (code.includes("password")) {
-      fieldErrors.password = message || "Invalid password";
-    } else if (code.includes("code")) {
-      fieldErrors.code = message || "Invalid verification code";
+  getErrorItems(error).forEach((item) => {
+    const paramField = getFieldFromParam(item.meta?.paramName);
+    const friendlyMessage = getClerkErrorMessage({ errors: [item] });
+
+    if (paramField) {
+      fieldErrors[paramField] = friendlyMessage;
+      return;
+    }
+
+    if (item.code?.includes("identifier") || item.code?.includes("email")) {
+      fieldErrors.email = friendlyMessage;
+      return;
+    }
+
+    if (item.code?.includes("password")) {
+      fieldErrors.password = friendlyMessage;
+      return;
+    }
+
+    if (item.code?.includes("code")) {
+      fieldErrors.code = friendlyMessage;
     }
   });
 
   return fieldErrors;
 };
 
-/**
- * Handles session tasks (e.g., MFA, profile completion)
- * Returns true if a task was handled, false otherwise
- */
-export const handleSessionTasks = (session: any): boolean => {
-  if (!session || !session.currentTask) {
-    return false;
+export const toAuthErrors = (
+  error: unknown,
+  fallbackField?: keyof AuthFormErrors,
+): AuthFormErrors => {
+  const fieldErrors = mapClerkFieldErrors(error);
+  const globalMessage = getClerkErrorMessage(error);
+
+  if (
+    fallbackField &&
+    !fieldErrors[fallbackField] &&
+    fallbackField !== "global"
+  ) {
+    fieldErrors[fallbackField] = globalMessage;
   }
 
-  // Log the task for debugging
-  console.log("Session task:", session.currentTask);
-
-  // TODO: Implement specific task handlers as needed
-  // For now, we just acknowledge that a task exists
-
-  return true;
-};
-
-/**
- * Formats password requirements for display
- */
-export const getPasswordRequirements = (password: string = "") => {
   return {
-    minLength: {
-      label: `At least ${PASSWORD_REQUIREMENTS.minLength} characters`,
-      met: password.length >= PASSWORD_REQUIREMENTS.minLength,
-    },
-    uppercase: {
-      label: "One uppercase letter (A-Z)",
-      met: PASSWORD_REQUIREMENTS.hasUppercase.test(password),
-    },
-    lowercase: {
-      label: "One lowercase letter (a-z)",
-      met: PASSWORD_REQUIREMENTS.hasLowercase.test(password),
-    },
-    number: {
-      label: "One number (0-9)",
-      met: PASSWORD_REQUIREMENTS.hasNumber.test(password),
-    },
-    special: {
-      label: "One special character (!@#$%...)",
-      met: PASSWORD_REQUIREMENTS.hasSpecial.test(password),
-    },
+    ...fieldErrors,
+    global: fieldErrors.email || fieldErrors.password || fieldErrors.code
+      ? undefined
+      : globalMessage,
   };
 };
 
-/**
- * Checks if all password requirements are met
- */
+export const getPasswordRequirements = (password = "") => ({
+  minLength: {
+    label: `At least ${PASSWORD_REQUIREMENTS.minLength} characters`,
+    met: password.length >= PASSWORD_REQUIREMENTS.minLength,
+  },
+  uppercase: {
+    label: "One uppercase letter (A-Z)",
+    met: PASSWORD_REQUIREMENTS.hasUppercase.test(password),
+  },
+  lowercase: {
+    label: "One lowercase letter (a-z)",
+    met: PASSWORD_REQUIREMENTS.hasLowercase.test(password),
+  },
+  number: {
+    label: "One number (0-9)",
+    met: PASSWORD_REQUIREMENTS.hasNumber.test(password),
+  },
+  special: {
+    label: "One special character",
+    met: PASSWORD_REQUIREMENTS.hasSpecial.test(password),
+  },
+});
+
 export const isPasswordValid = (password: string): boolean => {
-  const requirements = getPasswordRequirements(password);
-  return Object.values(requirements).every((req) => req.met);
+  return Object.values(getPasswordRequirements(password)).every(
+    (requirement) => requirement.met,
+  );
+};
+
+export const isVerificationPending = (signUp: {
+  status?: string | null;
+  unverifiedFields?: string[];
+} | null) => {
+  if (!signUp) {
+    return false;
+  }
+
+  return (
+    signUp.status === "missing_requirements" &&
+    Array.isArray(signUp.unverifiedFields) &&
+    signUp.unverifiedFields.includes("email_address")
+  );
+};
+
+export const requiresEmailSecondFactor = (signIn: {
+  status?: string | null;
+} | null) =>
+  signIn?.status === "needs_client_trust" ||
+  signIn?.status === "needs_second_factor";
+
+export const hasEmailSecondFactor = (signIn: {
+  supportedSecondFactors?: Array<{ strategy?: string }> | null;
+  mfa?: {
+    sendEmailCode?: () => Promise<{ error: ClerkLikeError | null }>;
+  };
+} | null) =>
+  Boolean(
+    signIn?.mfa?.sendEmailCode ||
+      signIn?.supportedSecondFactors?.some(
+        (factor) => factor?.strategy === "email_code",
+      ),
+  );
+
+export const startSignUp = async (
+  signUp: any,
+  params: { emailAddress: string; password: string },
+) => {
+  if (typeof signUp?.password === "function") {
+    return signUp.password(params);
+  }
+
+  return signUp?.create?.(params);
+};
+
+export const sendSignUpEmailCode = async (signUp: any) => {
+  if (typeof signUp?.verifications?.sendEmailCode === "function") {
+    return signUp.verifications.sendEmailCode();
+  }
+
+  return signUp?.prepareEmailAddressVerification?.({
+    strategy: "email_code",
+  });
+};
+
+export const verifySignUpEmailCode = async (signUp: any, code: string) => {
+  if (typeof signUp?.verifications?.verifyEmailCode === "function") {
+    return signUp.verifications.verifyEmailCode({ code });
+  }
+
+  return signUp?.attemptEmailAddressVerification?.({ code });
+};
+
+export const startSignIn = async (
+  signIn: any,
+  params: { emailAddress: string; password: string },
+) => {
+  if (typeof signIn?.password === "function") {
+    return signIn.password(params);
+  }
+
+  return signIn?.create?.({
+    identifier: params.emailAddress,
+    password: params.password,
+  });
+};
+
+export const sendSignInEmailCode = async (signIn: any) => {
+  if (typeof signIn?.mfa?.sendEmailCode === "function") {
+    return signIn.mfa.sendEmailCode();
+  }
+
+  return signIn?.prepareSecondFactor?.({
+    strategy: "email_code",
+  });
+};
+
+export const verifySignInEmailCode = async (signIn: any, code: string) => {
+  if (typeof signIn?.mfa?.verifyEmailCode === "function") {
+    return signIn.mfa.verifyEmailCode({ code });
+  }
+
+  return signIn?.attemptSecondFactor?.({
+    strategy: "email_code",
+    code,
+  });
+};
+
+export const resetAuthAttempt = async (resource: {
+  reset?: () => Promise<unknown>;
+} | null) => {
+  if (typeof resource?.reset === "function") {
+    await resource.reset();
+  }
+};
+
+export const activatePendingSession = async (
+  resource: SessionActivatableResource | null,
+  setActive: SetActiveFn,
+) => {
+  if (!resource || !setActive) {
+    throw new Error("We couldn't finish signing you in");
+  }
+
+  let sessionId =
+    resource.createdSessionId ?? resource.existingSession?.sessionId ?? null;
+
+  if (!sessionId && typeof resource.finalize === "function") {
+    const result = await resource.finalize();
+    if (result?.error) {
+      throw result.error;
+    }
+
+    sessionId =
+      resource.createdSessionId ?? resource.existingSession?.sessionId ?? null;
+  }
+
+  if (!sessionId) {
+    throw new Error("We couldn't finish signing you in. Please try again");
+  }
+
+  await setActive({ session: sessionId });
+};
+
+export const getUserLabel = (user: {
+  firstName?: string | null;
+  fullName?: string | null;
+  username?: string | null;
+  primaryEmailAddress?: {
+    emailAddress?: string | null;
+  } | null;
+} | null) => {
+  const fallback =
+    user?.primaryEmailAddress?.emailAddress?.split("@")[0] ?? "there";
+
+  return user?.firstName || user?.fullName || user?.username || fallback;
 };

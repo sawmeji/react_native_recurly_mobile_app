@@ -3,9 +3,9 @@ import { colors, components } from "@/constants/theme";
 import { useAuth } from "@clerk/expo";
 import clsx from "clsx";
 import { Redirect, Tabs } from "expo-router";
-import { ActivityIndicator, Image, View, Text } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
+import { ActivityIndicator, Image, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const tabBar = components.tabBar;
 
@@ -25,14 +25,9 @@ const TabLayout = () => {
   const [timeout, setTimedOut] = useState(false);
 
   useEffect(() => {
-    console.log("📊 Tabs Auth State:", { isLoaded, isSignedIn });
-
     // If not loaded after 5 seconds, redirect to sign-in anyway
     const timer = setTimeout(() => {
       if (!isLoaded) {
-        console.warn(
-          "⚠️ Tabs auth loading timeout - redirecting to sign-in"
-        );
         setTimedOut(true);
       }
     }, 5000);
@@ -52,7 +47,6 @@ const TabLayout = () => {
 
   // Redirect to sign-in if not authenticated (or if timed out)
   if (!isSignedIn || timeout) {
-    console.log("🚫 Not signed in, redirecting to sign-in");
     return <Redirect href="/(auth)/sign-in" />;
   }
 

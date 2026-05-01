@@ -246,8 +246,20 @@
     @apply mt-2 items-center;
   }
 
+  .auth-hero {
+    @apply relative mb-8 overflow-hidden rounded-[32px] border border-border bg-card px-5 pb-6 pt-5;
+  }
+
+  .auth-hero-glow {
+    @apply absolute -right-10 -top-10 size-36 opacity-85;
+  }
+
+  .auth-eyebrow {
+    @apply self-start rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-[11px] font-sans-bold uppercase tracking-[1.2px] text-accent;
+  }
+
   .auth-logo-wrap {
-    @apply mb-7 flex-row items-center gap-3;
+    @apply mb-6 mt-5 flex-row items-center gap-3;
   }
 
   .auth-logo-mark {
@@ -266,20 +278,44 @@
     @apply -mt-1 text-xs font-sans-semibold uppercase tracking-[1px] text-muted-foreground;
   }
 
+  .auth-trust-row {
+    @apply mt-5 flex-row flex-wrap gap-2;
+  }
+
+  .auth-trust-chip {
+    @apply rounded-full border border-border bg-background px-3 py-2;
+  }
+
+  .auth-trust-chip-text {
+    @apply text-xs font-sans-semibold text-primary;
+  }
+
   .auth-title {
     @apply text-3xl font-sans-bold text-primary;
   }
 
   .auth-subtitle {
-    @apply mt-2 max-w-[320px] text-center text-base font-sans-medium text-muted-foreground;
+    @apply mt-2 max-w-[320px] text-base font-sans-medium leading-6 text-muted-foreground;
   }
 
   .auth-card {
     @apply mt-8 rounded-3xl border border-border bg-card p-5;
   }
 
+  .auth-card-title {
+    @apply text-xl font-sans-bold text-primary;
+  }
+
+  .auth-card-copy {
+    @apply mt-1 text-sm font-sans-medium leading-6 text-muted-foreground;
+  }
+
   .auth-form {
     @apply gap-4;
+  }
+
+  .auth-form-stack {
+    @apply gap-5;
   }
 
   .auth-field {
@@ -304,6 +340,26 @@
 
   .auth-helper {
     @apply text-sm font-sans-medium text-muted-foreground;
+  }
+
+  .auth-banner {
+    @apply rounded-2xl border px-4 py-3;
+  }
+
+  .auth-banner-danger {
+    @apply border-destructive/20 bg-destructive/10;
+  }
+
+  .auth-banner-info {
+    @apply border-accent/20 bg-accent/10;
+  }
+
+  .auth-banner-title {
+    @apply text-sm font-sans-bold text-primary;
+  }
+
+  .auth-banner-copy {
+    @apply mt-1 text-xs font-sans-medium leading-5 text-muted-foreground;
   }
 
   .auth-button {
@@ -348,6 +404,34 @@
 
   .auth-link {
     @apply text-sm font-sans-bold text-accent;
+  }
+
+  .auth-legal {
+    @apply mt-4 text-center text-xs font-sans-medium leading-5 text-muted-foreground;
+  }
+
+  .auth-requirements {
+    @apply gap-2 rounded-2xl border border-border/70 bg-background/80 p-4;
+  }
+
+  .auth-requirement {
+    @apply flex-row items-center gap-3;
+  }
+
+  .auth-requirement-dot {
+    @apply size-4 items-center justify-center rounded-full border border-border bg-muted;
+  }
+
+  .auth-requirement-dot-met {
+    @apply border-success bg-success;
+  }
+
+  .auth-requirement-text {
+    @apply flex-1 text-xs font-sans-medium text-muted-foreground;
+  }
+
+  .auth-requirement-text-met {
+    @apply text-success;
   }
 
   .modal-overlay {

@@ -4,13 +4,14 @@ import UpcomingSubscriptionCard from "@/components/UpcomingSubscriptionCard";
 import {
   HOME_BALANCE,
   HOME_SUBSCRIPTIONS,
-  HOME_USER,
   UPCOMING_SUBSCRIPTIONS,
 } from "@/constants/data";
 import { icons } from "@/constants/icons";
 import images from "@/constants/images";
 import "@/global.css";
+import { getUserLabel } from "@/lib/auth";
 import { formatCurrency } from "@/lib/utils";
+import { useUser } from "@clerk/expo";
 import dayjs from "dayjs";
 import { styled } from "nativewind";
 import { useState } from "react";
@@ -20,9 +21,13 @@ import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
 const SafeAreaView = styled(RNSafeAreaView);
 
 export default function App() {
+  const { user } = useUser();
   const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<
     string | null
   >(null);
+  const displayName = getUserLabel(user ?? null);
+  const email = user?.primaryEmailAddress?.emailAddress;
+
   return (
     <SafeAreaView className="flex-1 bg-background p-5">
       <FlatList
@@ -30,9 +35,21 @@ export default function App() {
           <>
             <View className="home-header">
               <View className="home-user">
-                <Image source={images.avatar} className="home-avatar" />
+                {user?.imageUrl ? (
+                  <Image
+                    source={{ uri: user.imageUrl }}
+                    className="home-avatar"
+                  />
+                ) : (
+                  <Image source={images.avatar} className="home-avatar" />
+                )}
                 <View className="home-user-info">
-                  <Text className="home-user-name">{HOME_USER.name}</Text>
+                  <Text className="home-user-name">{displayName}</Text>
+                  {email ? (
+                    <Text className="text-sm font-sans-medium text-muted-foreground">
+                      {email}
+                    </Text>
+                  ) : null}
                 </View>
               </View>
               <Image source={icons.add} className="home-add-icon" />
