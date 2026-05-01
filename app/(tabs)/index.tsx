@@ -17,16 +17,38 @@ import { styled } from "nativewind";
 import { useState } from "react";
 import { FlatList, Image, Text, View } from "react-native";
 import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
+import { usePostHog } from "posthog-react-native";
 
 const SafeAreaView = styled(RNSafeAreaView);
 
 export default function App() {
   const { user } = useUser();
+  const posthog = usePostHog();
   const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<
     string | null
   >(null);
   const displayName = getUserLabel(user ?? null);
   const email = user?.primaryEmailAddress?.emailAddress;
+
+  const handleSubscriptionPress = (item: (typeof HOME_SUBSCRIPTIONS)[0]) => {
+    const isExpanding = expandedSubscriptionId !== item.id;
+    setExpandedSubscriptionId((currentId) =>
+      currentId === item.id ? null : item.id,
+    );
+    if (isExpanding) {
+      posthog.capture("subscription_expanded", {
+        subscription_id: item.id,
+        subscription_name: item.name,
+        category: item.category,
+        billing: item.billing,
+      });
+    } else {
+      posthog.capture("subscription_collapsed", {
+        subscription_id: item.id,
+        subscription_name: item.name,
+      });
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-background p-5">
@@ -91,11 +113,7 @@ export default function App() {
           <SubscriptionCard
             {...item}
             expanded={expandedSubscriptionId === item.id}
-            onPress={() =>
-              setExpandedSubscriptionId((currentId) =>
-                currentId === item.id ? null : item.id,
-              )
-            }
+            onPress={() => handleSubscriptionPress(item)}
           />
         )}
         keyExtractor={(item) => item.id}
