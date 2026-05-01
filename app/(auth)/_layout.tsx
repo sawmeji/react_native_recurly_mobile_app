@@ -1,5 +1,6 @@
 import { useAuth } from "@clerk/expo";
 import { Redirect, Stack } from "expo-router";
+import { ActivityIndicator, View } from "react-native";
 
 /**
  * Auth group layout with redirect logic
@@ -9,9 +10,13 @@ import { Redirect, Stack } from "expo-router";
 export default function AuthRoutesLayout() {
   const { isSignedIn, isLoaded } = useAuth();
 
-  // Wait for auth state to load
+  // Show loading indicator while checking auth state
   if (!isLoaded) {
-    return null;
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator size="large" color="#ea7a53" />
+      </View>
+    );
   }
 
   // If already signed in, redirect to home

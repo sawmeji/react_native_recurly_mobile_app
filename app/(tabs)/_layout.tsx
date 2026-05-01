@@ -3,7 +3,7 @@ import { colors, components } from "@/constants/theme";
 import { useAuth } from "@clerk/expo";
 import clsx from "clsx";
 import { Redirect, Tabs } from "expo-router";
-import { Image, View } from "react-native";
+import { ActivityIndicator, Image, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const tabBar = components.tabBar;
@@ -22,9 +22,13 @@ const TabLayout = () => {
   const insets = useSafeAreaInsets();
   const { isSignedIn, isLoaded } = useAuth();
 
-  // Wait for auth state to load
+  // Show loading indicator while checking auth state
   if (!isLoaded) {
-    return null;
+    return (
+      <View className="flex-1 items-center justify-center bg-background">
+        <ActivityIndicator size="large" color="#ea7a53" />
+      </View>
+    );
   }
 
   // Redirect to sign-in if not authenticated
