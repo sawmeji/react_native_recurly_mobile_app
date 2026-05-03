@@ -1,3 +1,4 @@
+import CreateSubscriptionModal from "@/components/CreateSubscriptionModal";
 import ListHeading from "@/components/ListHeading";
 import SubscriptionCard from "@/components/SubscriptionCard";
 import UpcomingSubscriptionCard from "@/components/UpcomingSubscriptionCard";
@@ -15,7 +16,7 @@ import { useUser } from "@clerk/expo";
 import dayjs from "dayjs";
 import { styled } from "nativewind";
 import { useState } from "react";
-import { FlatList, Image, Text, View } from "react-native";
+import { FlatList, Image, Pressable, Text, View } from "react-native";
 import { SafeAreaView as RNSafeAreaView } from "react-native-safe-area-context";
 import { usePostHog } from "posthog-react-native";
 
@@ -27,10 +28,14 @@ export default function App() {
   const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<
     string | null
   >(null);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(
+    HOME_SUBSCRIPTIONS,
+  );
   const displayName = getUserLabel(user ?? null);
   const email = user?.primaryEmailAddress?.emailAddress;
 
-  const handleSubscriptionPress = (item: (typeof HOME_SUBSCRIPTIONS)[0]) => {
+  const handleSubscriptionPress = (item: Subscription) => {
     const isExpanding = expandedSubscriptionId !== item.id;
     setExpandedSubscriptionId((currentId) =>
       currentId === item.id ? null : item.id,
@@ -39,7 +44,7 @@ export default function App() {
       posthog.capture("subscription_expanded", {
         subscription_id: item.id,
         subscription_name: item.name,
-        category: item.category,
+        category: item.category || "Unknown",
         billing: item.billing,
       });
     } else {
@@ -48,6 +53,17 @@ export default function App() {
         subscription_name: item.name,
       });
     }
+  };
+
+  const handleCreateSubscription = (newSubscription: Subscription) => {
+    setSubscriptions((prev) => [newSubscription, ...prev]);
+    setModalVisible(false);
+    posthog.capture("subscription_created", {
+      subscription_id: newSubscription.id,
+      subscription_name: newSubscription.name,
+      category: newSubscription.category || "Unknown",
+      billing: newSubscription.billing,
+    });
   };
 
   return (
@@ -74,7 +90,12 @@ export default function App() {
                   ) : null}
                 </View>
               </View>
-              <Image source={icons.add} className="home-add-icon" />
+              <Pressable
+                onPress={() => setModalVisible(true)}
+                hitSlop={8}
+              >
+                <Image source={icons.add} className="home-add-icon" />
+              </Pressable>
             </View>
 
             <View className="home-balance-card">
@@ -108,7 +129,7 @@ export default function App() {
             <ListHeading title="All Subscriptions" />
           </>
         )}
-        data={HOME_SUBSCRIPTIONS}
+        data={subscriptions}
         renderItem={({ item }) => (
           <SubscriptionCard
             {...item}
@@ -124,6 +145,11 @@ export default function App() {
           <Text className="home-empty-state">No active subscriptions</Text>
         }
         contentContainerClassName="pb-30"
+      />
+      <CreateSubscriptionModal
+        visible={modalVisible}
+        onClose={() => setModalVisible(false)}
+        onSubmit={handleCreateSubscription}
       />
     </SafeAreaView>
   );

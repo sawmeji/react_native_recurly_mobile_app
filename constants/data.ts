@@ -105,3 +105,25 @@ export const HOME_SUBSCRIPTIONS: Subscription[] = [
     color: "#b8e8d0",
   },
 ];
+
+export const SUBSCRIPTION_CATEGORIES = [
+  "Entertainment",
+  "AI Tools",
+  "Developer Tools",
+  "Design",
+  "Productivity",
+  "Cloud",
+  "Music",
+  "Other",
+] as const;
+
+export const CATEGORY_COLORS: Record<string, string> = {
+  Entertainment: "#8fd1bd",
+  "AI Tools": "#b8d4e3",
+  "Developer Tools": "#e8def8",
+  Design: "#f5c542",
+  Productivity: "#b8e8d0",
+  Cloud: "#ea7a53",
+  Music: "#f5a962",
+  Other: "#c8b5d0",
+};
